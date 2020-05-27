@@ -24,12 +24,12 @@ while True:
         domainwithoutprefix = re.sub("^https?://", "", checkedurl)
         try:
             r = requests.head(checkedurl, verify=False, allow_redirects=True)
-            print(r.status_code)
+            #print(r.status_code)
             status_code = r.status_code
             respTime = round(r.elapsed.total_seconds(), 3)
             # prints the int of the status code. Find more at httpstatusrappers.com :)
         except requests.ConnectionError:
-            print("failed to connect")
+            print("failed to connect to " + checkedurl)
             status_code = 999
             respTime = 999.0
 
