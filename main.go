@@ -3,16 +3,16 @@ package	main
 import (
 	"crypto/tls"
 	"encoding/csv"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
-
 type CsvLine struct {
 	domains string
+	protocol string
 }
 
 func readCsvFile() [][]string {
@@ -32,40 +32,48 @@ func readCsvFile() [][]string {
 }
 
 
-func gethttpstatuscode() (*http.Response, int64) {
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+func gethttpreq(url string) (int, int64, error) {
 	starttime := time.Now().UTC().UnixNano()
-	resp, err := http.Head("https://192.168.1.100:444")
-	latency := time.Now().UTC().UnixNano() - starttime
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err)
+		//log.Print(err)
+		return 0, 0, err
 	}
-	return resp, latency
+	latency := time.Now().UTC().UnixNano() - starttime
+	return resp.StatusCode, latency, nil
 }
 
-func gettcpstatus() net.Conn {
+func gettcpreq (host string, port string) (net.Conn, int64, error) {
 	timeout := time.Second
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort("192.168.1.100", "23"), timeout)
-	if err != nil {
-		fmt.Println("Connecting error:", err)
-	}
-	if conn != nil {
-		defer conn.Close()
-		fmt.Println("Opened", net.JoinHostPort("192.168.1.100", "23"))
-	}
-		return conn
+	starttime := time.Now().UTC().UnixNano()
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	latency := time.Now().UTC().UnixNano() - starttime
+	return conn, latency, err
 }
 
 func main()  {
-	resp, latency := gethttpstatuscode()
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	csvLines := readCsvFile()
-	for _, line := range csvLines{
-		data := CsvLine{
-			domains: line[0],
+	for{
+		for _, line := range csvLines{
+			data := CsvLine{
+				domains: line[0],
+				protocol: line[1],
+			}
+			println(data.domains)
+			spliteddata := strings.Split(data.domains, ":")
+
+			if data.protocol == "tcp"{
+				tcpreq, tcplatency, err := gettcpreq(spliteddata[0], spliteddata[1])
+				println(tcpreq,tcplatency,err)
+
+			} else if data.protocol == "http" {
+				httpreq, httplatency, err := gethttpreq(data.domains)
+				println(httpreq, httplatency, err)
+
+			}
+
 		}
-		println(data.domains)
+		time.Sleep(1 * time.Second)
 	}
-	tcpstatus := gettcpstatus()
-	fmt.Println(tcpstatus)
-	fmt.Println(resp.StatusCode, latency, csvLines[1])
 }
